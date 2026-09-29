@@ -30,7 +30,7 @@ RUN apt-get update && \
 ############################################
 # Vulkan SDK Setup
 ############################################
-ENV VULKAN_SDK_VERSION="1.4.350.0"
+ENV VULKAN_SDK_VERSION="1.4.363.0"
 
 RUN mkdir -p ${LOCAL_PREFIX}/VulkanSDK && \
     wget -qO /tmp/vulkansdk.tar.xz "https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz" && \
@@ -99,7 +99,7 @@ ENV PATH="${ANDROID_HOME}/platform-tools:${GRADLE_HOME}/bin:${EMSDK}:${EMSDK}/up
 # C++ Libraries
 ###################################
 
-ENV GLFW_VERSION="3.4"
+ENV GLFW_VERSION="3.5.1"
 RUN wget "https://github.com/glfw/glfw/archive/refs/tags/${GLFW_VERSION}.tar.gz" -O /tmp/glfw-${GLFW_VERSION}.tar.gz && \
     tar -xzf /tmp/glfw-${GLFW_VERSION}.tar.gz -C /tmp/ && \
     rm -rf /tmp/glfw-${GLFW_VERSION}.tar.gz && \
@@ -109,7 +109,7 @@ RUN wget "https://github.com/glfw/glfw/archive/refs/tags/${GLFW_VERSION}.tar.gz"
     cmake --build /tmp/glfw-${GLFW_VERSION}/build_static --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/glfw-${GLFW_VERSION}
 
-ENV SDL_VERSION="3.4.10"
+ENV SDL_VERSION="3.4.16"
 RUN wget "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL3-${SDL_VERSION}.tar.gz" -O /tmp/SDL3-${SDL_VERSION}.tar.gz && \
     tar -xzf /tmp/SDL3-${SDL_VERSION}.tar.gz -C /tmp/ && \
     rm -rf /tmp/SDL3-${SDL_VERSION}.tar.gz && \
@@ -175,11 +175,6 @@ RUN cd ${LOCAL_PREFIX}/src/glad && gcc -fPIC -I${LOCAL_PREFIX}/include -c glad.c
     gcc -shared -fPIC glad.c -I${LOCAL_PREFIX}/include -o ${LOCAL_PREFIX}/lib/libglad.so.1.0.0 && \
     ln -sf libglad.so.1.0.0 ${LOCAL_PREFIX}/lib/libglad.so.1 && ln -sf libglad.so.1 ${LOCAL_PREFIX}/lib/libglad.so && rm glad.o
 
-ENV DEARIMGUI_VERSION="1.92.6"
-RUN wget "https://github.com/ocornut/imgui/archive/refs/tags/v${DEARIMGUI_VERSION}.tar.gz" -O /tmp/imgui-${DEARIMGUI_VERSION}.tar.gz && \
-    tar -xzf /tmp/imgui-${DEARIMGUI_VERSION}.tar.gz -C /tmp/ && rm /tmp/imgui-${DEARIMGUI_VERSION}.tar.gz && \
-    mkdir -p ${LOCAL_PREFIX}/include/imgui && mv /tmp/imgui-${DEARIMGUI_VERSION}/* ${LOCAL_PREFIX}/include/imgui/ && rm -rf /tmp/imgui-${DEARIMGUI_VERSION}
-
 ENV GLM_VERSION="1.0.3"
 RUN wget "https://github.com/g-truc/glm/archive/refs/tags/${GLM_VERSION}.tar.gz" -O /tmp/glm-${GLM_VERSION}.tar.gz && \
     tar -xzf /tmp/glm-${GLM_VERSION}.tar.gz -C /tmp/ && rm /tmp/glm-${GLM_VERSION}.tar.gz && \
@@ -194,7 +189,7 @@ RUN wget "https://github.com/nlohmann/json/releases/download/v${NLOHMANN_JSON}/j
     cmake --build /tmp/json/build --target install && \
     rm -rf /tmp/json
 
-ENV SQLITECPP_VERSION="3.3.3"
+ENV SQLITECPP_VERSION="3.4.0"
 RUN wget -q "https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/${SQLITECPP_VERSION}.tar.gz" -O /tmp/SQLiteCpp-${SQLITECPP_VERSION}.tar.gz && \
     tar -xzf /tmp/SQLiteCpp-${SQLITECPP_VERSION}.tar.gz -C /tmp/ && rm -rf /tmp/SQLiteCpp-${SQLITECPP_VERSION}.tar.gz && \
     cmake -S /tmp/SQLiteCpp-${SQLITECPP_VERSION} -B /tmp/SQLiteCpp-${SQLITECPP_VERSION}/build_static \
@@ -203,11 +198,6 @@ RUN wget -q "https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/${SQLITECP
         -DSQLITECPP_INTERNAL_SQLITE=ON && \
     cmake --build /tmp/SQLiteCpp-${SQLITECPP_VERSION}/build_static --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/SQLiteCpp-${SQLITECPP_VERSION}
-
-ENV RAYLIB_VERSION="6.0"
-RUN wget "https://github.com/raysan5/raylib/releases/download/${RAYLIB_VERSION}/raylib-${RAYLIB_VERSION}_linux_amd64.tar.gz" -O /tmp/raylib-${RAYLIB_VERSION}_linux_amd64.tar.gz && \
-    tar -xzf /tmp/raylib-${RAYLIB_VERSION}_linux_amd64.tar.gz -C /tmp/ && rm -rf /tmp/raylib-${RAYLIB_VERSION}_linux_amd64.tar.gz && \
-    cp -r /tmp/raylib-${RAYLIB_VERSION}_linux_amd64/lib/* ${LOCAL_PREFIX}/lib && cp -r /tmp/raylib-${RAYLIB_VERSION}_linux_amd64/include/* ${LOCAL_PREFIX}/include/ && rm -rf /tmp/raylib-${RAYLIB_VERSION}_linux_amd64
 
 ENV JWTCPP_VERSION="0.7.2"
 RUN wget "https://github.com/Thalhammer/jwt-cpp/releases/download/v${JWTCPP_VERSION}/jwt-cpp-v${JWTCPP_VERSION}.tar.gz" -O /tmp/jwt-cpp-v${JWTCPP_VERSION}.tar.gz && \
