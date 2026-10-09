@@ -230,7 +230,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIB
     rm -rf /tmp/libink
 
 # Compile libwma for Linux, Android, and WASM
-ENV LIBWMA_VERSION="0.5.1"
+ENV LIBWMA_VERSION="0.5.4"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIBWMA_VERSION}.tar.gz" -O libwma.tar.gz && \
     mkdir -p libwma && tar -xzf libwma.tar.gz -C libwma --strip-components=1 && rm -rf libwma.tar.gz && \
     cd libwma && \
