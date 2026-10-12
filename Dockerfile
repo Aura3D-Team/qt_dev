@@ -197,6 +197,19 @@ RUN wget -q "https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/${SQLITECP
         -DBUILD_SHARED_LIBS=OFF \
         -DSQLITECPP_INTERNAL_SQLITE=ON && \
     cmake --build /tmp/SQLiteCpp-${SQLITECPP_VERSION}/build_static --target install --parallel $(( ($(nproc)+1)/2 )) && \
+    cmake -S /tmp/SQLiteCpp-${SQLITECPP_VERSION} -B /tmp/SQLiteCpp-${SQLITECPP_VERSION}/build_android \
+        -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
+        -DANDROID_ABI=arm64-v8a \
+        -DANDROID_PLATFORM=android-29 \
+        -DANDROID_STL=c++_shared \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DCMAKE_INSTALL_PREFIX=${LOCAL_PREFIX}/android \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DSQLITECPP_INTERNAL_SQLITE=ON \
+        -DSQLITECPP_RUN_CPPLINT=OFF \
+        -DSQLITECPP_RUN_CPPCHECK=OFF && \
+    cmake --build /tmp/SQLiteCpp-${SQLITECPP_VERSION}/build_android --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/SQLiteCpp-${SQLITECPP_VERSION}
 
 ENV JWTCPP_VERSION="0.7.2"
@@ -230,7 +243,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIB
     rm -rf /tmp/libink
 
 # Compile libwma for Linux, Android, and WASM
-ENV LIBWMA_VERSION="0.5.4"
+ENV LIBWMA_VERSION="0.6.1"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIBWMA_VERSION}.tar.gz" -O libwma.tar.gz && \
     mkdir -p libwma && tar -xzf libwma.tar.gz -C libwma --strip-components=1 && rm -rf libwma.tar.gz && \
     cd libwma && \
@@ -240,7 +253,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIB
     rm -rf /tmp/libwma
 
 # Compile Aura3D for Linux, Android, and WASM
-ENV AURA3D_VERSION="0.4.1"
+ENV AURA3D_VERSION="0.5.0"
 RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${AURA3D_VERSION}.tar.gz" -O aura3d.tar.gz && \
     mkdir -p aura3d && tar -xzf aura3d.tar.gz -C aura3d --strip-components=1 && rm -rf aura3d.tar.gz && \
     cd aura3d && \
