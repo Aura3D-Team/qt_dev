@@ -243,7 +243,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIB
     rm -rf /tmp/libink
 
 # Compile libwma for Linux, Android, and WASM
-ENV LIBWMA_VERSION="0.6.1"
+ENV LIBWMA_VERSION="0.7.0"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIBWMA_VERSION}.tar.gz" -O libwma.tar.gz && \
     mkdir -p libwma && tar -xzf libwma.tar.gz -C libwma --strip-components=1 && rm -rf libwma.tar.gz && \
     cd libwma && \
@@ -253,7 +253,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIB
     rm -rf /tmp/libwma
 
 # Compile Aura3D for Linux, Android, and WASM
-ENV AURA3D_VERSION="0.5.0"
+ENV AURA3D_VERSION="0.6.0"
 RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${AURA3D_VERSION}.tar.gz" -O aura3d.tar.gz && \
     mkdir -p aura3d && tar -xzf aura3d.tar.gz -C aura3d --strip-components=1 && rm -rf aura3d.tar.gz && \
     cd aura3d && \
