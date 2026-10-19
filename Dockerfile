@@ -23,9 +23,32 @@ RUN apt-get update && \
     # X11 (Required for libwma's X11 backend + running desktop/GUI apps)
     libx11-dev libxext-dev xauth \
     # Vulkan & Mesa
-    libvulkan1 libvulkan-dev vulkan-tools mesa-vulkan-drivers && \
+    libvulkan1 libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+        # libaurashell: PipeWire audio service, SVG icons
+    libpipewire-0.3-dev librsvg2-dev \
+    # Hyprland: the compositor AuraShell targets. It runs nested inside the
+    # host's Wayland session (see scripts/hypr-nested), so a shell surface can
+    # be developed against a real compositor, layer-shell, IPC and workspaces
+    # without the container needing DRM master or a seat of its own.
+    # hyprland-protocols installs its XML under a pkg-config pkgdatadir, the
+    # same way wayland-protocols does, so a client can generate bindings for
+    # focus-grab and friends when it needs them.
+    hyprland hyprland-protocols \
+    # Xwayland so X11 clients (and libwma's X11 backend) run inside the session
+    xwayland \
+    # A terminal, or the nested session has no way to launch anything by hand
+    foot \
+    # Portals: screenshare, file pickers, and what a shell's own UI will need
+    xdg-desktop-portal xdg-desktop-portal-hyprland \
+    # Diagnosis: wayland-info answers "is this protocol even advertised"
+    wayland-utils wl-clipboard \
+    seatd dbus-x11 \
+    fonts-dejavu-core && \
     apt-get clean && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
+
+COPY --chmod=755 ./scripts/hypr-nested ./scripts/hypr-env /usr/local/bin/
+COPY ./scripts/hyprland-nested.conf /usr/share/aurashell/hyprland-nested.conf
 
 ############################################
 # Vulkan SDK Setup
@@ -46,6 +69,57 @@ RUN wget "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/arch
 ENV VULKAN_SDK="${LOCAL_PREFIX}/VulkanSDK/${VULKAN_SDK_VERSION}/x86_64"
 ENV VK_ADD_LAYER_PATH="${VULKAN_SDK}/share/vulkan/explicit_layer.d"
 ENV PKG_CONFIG_PATH="${VULKAN_SDK}/share/pkgconfig:${VULKAN_SDK}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+############################################
+# ONNX Runtime + plugins CUDA/WebGPU versões pareadas
+############################################
+ENV ONNXRUNTIME_VERSION=1.31.0
+ENV ONNXRUNTIME_CUDA_EP_VERSION=0.3.0
+ENV ONNXRUNTIME_WEBGPU_EP_VERSION=0.4.0
+ENV ONNXRUNTIME_DIR=${LOCAL_PREFIX}/onnxruntime
+
+# ONNXRUNTIME CORE
+RUN cd /tmp && \
+    wget https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}.tgz --tries 5 --retry-connrefused && \
+    mkdir -p ${ONNXRUNTIME_DIR} && \
+    tar xzf onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}.tgz --strip-components=1 -C ${ONNXRUNTIME_DIR} && \
+    rm onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}.tgz
+
+# CUDA plugin
+RUN cd /tmp && \
+    wget https://github.com/microsoft/onnxruntime/releases/download/plugin-ep-cuda/v${ONNXRUNTIME_CUDA_EP_VERSION}/cuda_ep_cuda12_${ONNXRUNTIME_CUDA_EP_VERSION}_linux-x64.tar.gz --tries 5 --retry-connrefused && \
+    mkdir -p ${ONNXRUNTIME_DIR}/plugins/cuda && \
+    tar xzf cuda_ep_cuda12_${ONNXRUNTIME_CUDA_EP_VERSION}_linux-x64.tar.gz -C ${ONNXRUNTIME_DIR}/plugins/cuda && \
+    rm cuda_ep_cuda12_${ONNXRUNTIME_CUDA_EP_VERSION}_linux-x64.tar.gz
+
+# WebGPU plugin (Dawn embutido, sobre Vulkan). Não há asset
+# no GitHub Release: o binário é distribuído só via NuGet (um .nupkg é um zip).
+# Requer ORT >= 1.24.4 e libvulkan.so.1 em runtime (já instalado acima).
+RUN cd /tmp && \
+    wget https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.ep.webgpu/${ONNXRUNTIME_WEBGPU_EP_VERSION}/microsoft.ml.onnxruntime.ep.webgpu.${ONNXRUNTIME_WEBGPU_EP_VERSION}.nupkg -O webgpu_ep.zip --tries 5 --retry-connrefused && \
+    mkdir -p ${ONNXRUNTIME_DIR}/plugins/webgpu && \
+    unzip -q -j webgpu_ep.zip "runtimes/linux-x64/native/libonnxruntime_providers_webgpu.so" LICENSE ThirdPartyNotices.txt -d ${ONNXRUNTIME_DIR}/plugins/webgpu && \
+    rm webgpu_ep.zip
+
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${ONNXRUNTIME_DIR}/lib:${ONNXRUNTIME_DIR}/plugins/cuda:${ONNXRUNTIME_DIR}/plugins/webgpu"
+
+
+############################################
+# FFmpeg (Built from source for latest features)
+############################################
+ENV FFMPEG_VERSION="n9.0.2"
+RUN wget "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VERSION}.tar.gz" -O /tmp/ffmpeg.tar.gz && \
+    tar -xzf /tmp/ffmpeg.tar.gz -C /tmp/ && \
+    cd /tmp/FFmpeg-${FFMPEG_VERSION} && \
+    export PATH="${VULKAN_SDK}/bin:${PATH}" && \
+    ./configure --prefix=/usr/local --enable-shared --enable-gpl \
+        --enable-libx264 --enable-libopus \
+        --enable-vulkan --enable-libonnxruntime \
+        --extra-cflags="-I${ONNXRUNTIME_DIR}/include" \
+        --extra-ldflags="-L${ONNXRUNTIME_DIR}/lib -Wl,-rpath,${ONNXRUNTIME_DIR}/lib" && \
+    make -j$(( ($(nproc)+1)/2 )) && make install && ldconfig && \
+    rm -rf /tmp/FFmpeg* /tmp/ffmpeg.tar.gz
+
 
 ############################################
 # Android SDK, NDK, and Gradle Setup
@@ -85,7 +159,7 @@ RUN wget -q "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-
 # Emscripten (WebAssembly) Setup
 ############################################
 ENV EMSDK="/opt/emsdk"
-ENV EMSCRIPTEN_VERSION="6.0.0"
+ENV EMSCRIPTEN_VERSION="6.0.13"
 RUN git clone "https://github.com/emscripten-core/emsdk.git" ${EMSDK} && \
     cd ${EMSDK} && \
     git fetch --tags && \
@@ -109,7 +183,7 @@ RUN wget "https://github.com/glfw/glfw/archive/refs/tags/${GLFW_VERSION}.tar.gz"
     cmake --build /tmp/glfw-${GLFW_VERSION}/build_static --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/glfw-${GLFW_VERSION}
 
-ENV SDL_VERSION="3.4.16"
+ENV SDL_VERSION="3.4.18"
 RUN wget "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL3-${SDL_VERSION}.tar.gz" -O /tmp/SDL3-${SDL_VERSION}.tar.gz && \
     tar -xzf /tmp/SDL3-${SDL_VERSION}.tar.gz -C /tmp/ && \
     rm -rf /tmp/SDL3-${SDL_VERSION}.tar.gz && \
@@ -220,20 +294,16 @@ RUN wget "https://github.com/Thalhammer/jwt-cpp/releases/download/v${JWTCPP_VERS
     cmake --build /tmp/jwt-cpp-v${JWTCPP_VERSION}/build --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/jwt-cpp-v${JWTCPP_VERSION}
 
-ENV ORT_VERSION="1.26.0"
-RUN wget "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-gpu-${ORT_VERSION}.tgz" -O /tmp/ort.tgz && \
-    tar -xzf /tmp/ort.tgz -C /tmp/ && cp -r /tmp/onnxruntime-linux-x64-gpu-${ORT_VERSION}/include/* ${LOCAL_PREFIX}/include/ && cp -r /tmp/onnxruntime-linux-x64-gpu-${ORT_VERSION}/lib/* ${LOCAL_PREFIX}/lib/ && rm -rf /tmp/ort.tgz /tmp/onnxruntime*
-
 RUN wget "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h" -O ${LOCAL_PREFIX}/include/stb_image.h && \
     wget "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h" -O ${LOCAL_PREFIX}/include/stb_image_write.h && \
-    wget "https://raw.githubusercontent.com/nothings/stb/master/stb_image_resize2.h" -O ${LOCAL_PREFIX}/include/stb_image_resize2.h && \
+    wget "https://raw.githubusercontent.com/nothings/stb_image_resize/main/stb_image_resize2.h" -O ${LOCAL_PREFIX}/include/stb_image_resize2.h && \
     wget "https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c" -O ${LOCAL_PREFIX}/include/stb_vorbis.c && \
     wget "https://raw.githubusercontent.com/nothings/stb/master/stb_include.h" -O ${LOCAL_PREFIX}/include/stb_include.h && chmod 644 ${LOCAL_PREFIX}/include/stb_*
 
 # Linux, Android and WASM, all into ${LOCAL_PREFIX}: headers install once and
 # each library carries its ABI tag (libink_wasm32.a, ...). Release only --
 # a debug build of a dependency has no place in a distributed image.
-ENV LIBINK_VERSION="0.6.0"
+ENV LIBINK_VERSION="0.6.1"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIBINK_VERSION}.tar.gz" -O libink.tar.gz && \
     mkdir -p libink && tar -xzf libink.tar.gz -C libink --strip-components=1 && rm -rf libink.tar.gz && \
     cd libink && \
@@ -243,7 +313,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIB
     rm -rf /tmp/libink
 
 # Compile libwma for Linux, Android, and WASM
-ENV LIBWMA_VERSION="0.7.0"
+ENV LIBWMA_VERSION="0.9.0"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIBWMA_VERSION}.tar.gz" -O libwma.tar.gz && \
     mkdir -p libwma && tar -xzf libwma.tar.gz -C libwma --strip-components=1 && rm -rf libwma.tar.gz && \
     cd libwma && \
@@ -253,7 +323,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIB
     rm -rf /tmp/libwma
 
 # Compile Aura3D for Linux, Android, and WASM
-ENV AURA3D_VERSION="0.6.0"
+ENV AURA3D_VERSION="0.8.0"
 RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${AURA3D_VERSION}.tar.gz" -O aura3d.tar.gz && \
     mkdir -p aura3d && tar -xzf aura3d.tar.gz -C aura3d --strip-components=1 && rm -rf aura3d.tar.gz && \
     cd aura3d && \
@@ -261,35 +331,6 @@ RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${
     cmake --preset android && cmake --build --preset android --target install && \
     cmake --preset wasm && cmake --build --preset wasm --target install && \
     rm -rf /tmp/aura3d
-
-############################################
-# Hyprland: the compositor AuraShell targets
-############################################
-# Runs nested inside the host's Wayland session (see scripts/hypr-nested), so a
-# shell surface can be developed against a real compositor, real layer-shell,
-# real IPC, real workspaces, without the container needing DRM master or a
-# seat of its own. hyprland-protocols installs its XML under a pkg-config
-# pkgdatadir, the same way wayland-protocols does, so a client can generate
-# bindings for focus-grab and friends when it needs them.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    hyprland hyprland-protocols \
-    # Xwayland so X11 clients (and libwma's X11 backend) run inside the session
-    xwayland \
-    # A terminal, or the nested session has no way to launch anything by hand
-    foot \
-    # Portals: screenshare, file pickers, and what a shell's own UI will need
-    xdg-desktop-portal xdg-desktop-portal-hyprland \
-    # Diagnosis: wayland-info answers "is this protocol even advertised"
-    wayland-utils wl-clipboard \
-    seatd dbus-x11 \
-    fonts-dejavu-core && \
-    apt-get clean && apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY ./scripts/hypr-nested ./scripts/hypr-env /usr/local/bin/
-COPY ./scripts/hyprland-nested.conf /usr/share/aurashell/hyprland-nested.conf
-RUN chmod +x /usr/local/bin/hypr-nested /usr/local/bin/hypr-env
 
 ############################################
 # Verification
