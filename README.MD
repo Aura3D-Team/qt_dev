@@ -54,6 +54,23 @@ Before starting the container, instead of doing `xhost +` command, do this:
 alias start_vulkan_dev="cat $XAUTHORITY > ~/.docker_xauth && docker start vulkan-dev"
 ```
 
+`--run` looks at the host and passes only what it has, so the same command works on an older
+machine that runs X11 (no Wayland socket, no NVIDIA runtime, no sound card):
+
+| Host has | Container gets |
+|---|---|
+| a Wayland socket (`$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`) | the socket, `XDG_SESSION_TYPE=wayland`; otherwise `x11` |
+| `nvidia-smi` | `--gpus all` and the NVIDIA ICD; otherwise Mesa through `/dev/dri` |
+| `/dev/dri`, `/dev/snd` | the devices |
+| `$XAUTHORITY` (or `~/.Xauthority`) | a copy at `~/.docker_xauth`; with none, run `xhost +local:docker` once |
+
+A disposable X server for tests and bare-display runs:
+
+```sh
+docker exec -d vulkan-dev Xvfb :77 -screen 0 800x600x24 -nolisten tcp
+docker exec -e DISPLAY=:77 vulkan-dev <your test>
+```
+
 ---
 
 ## 🖥️ Nested Hyprland

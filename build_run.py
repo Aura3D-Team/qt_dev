@@ -2,8 +2,10 @@ import argparse
 import subprocess as sp
 import logging as log
 import os
+import shlex
+import shutil
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 log.basicConfig(level=log.INFO, format='%(levelname)s: %(message)s')
 
@@ -64,40 +66,55 @@ def run(project_path: str, image: str, container_name: str) -> None:
         ENV HOME=/home/developer
         WORKDIR /home/developer    
     """ 
-    env_vars = {
-        "DISPLAY": os.getenv("DISPLAY", ":0"),
-        "XDG_RUNTIME_DIR": os.getenv("XDG_RUNTIME_DIR", ""),
-        "WAYLAND_DISPLAY": os.getenv("WAYLAND_DISPLAY", "wayland-0"),
-        "HOME": os.getenv("HOME", "")
-    }
+    home: str = os.getenv("HOME", "")
+    display: str = os.getenv("DISPLAY", ":0")
+    runtime_dir: str = os.getenv("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    wayland_display: str = os.getenv("WAYLAND_DISPLAY", "")
+    wayland_socket: str = os.path.join(runtime_dir, wayland_display) if wayland_display else ""
 
-    run_command = f"""
-        docker rm -f {container_name} || true && \
-        docker run --gpus all -d \
-            --name {container_name} \
-            --ipc=host \
-            -e NVIDIA_VISIBLE_DEVICES=all \
-            -e NVIDIA_DRIVER_CAPABILITIES=all \
-            -e DISPLAY={env_vars['DISPLAY']} \
-            -e XDG_RUNTIME_DIR={env_vars['XDG_RUNTIME_DIR']} \
-            -e WAYLAND_DISPLAY={env_vars['WAYLAND_DISPLAY']} \
-            -e XDG_SESSION_TYPE=wayland \
-            -v /usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro \
-            -v /tmp/.X11-unix:/tmp/.X11-unix \
-            -v {env_vars['XDG_RUNTIME_DIR']}/{env_vars['WAYLAND_DISPLAY']}:{env_vars['XDG_RUNTIME_DIR']}/{env_vars['WAYLAND_DISPLAY']} \
-            -v {env_vars['HOME']}/.docker_xauth:/home/developer/.Xauthority:ro \
-            --device /dev/dri:/dev/dri \
-            --device /dev/snd:/dev/snd \
-            -v {project_path}:/home/developer/workspace \
-            -v {project_path}/qtcreator_config:/home/developer/.config/QtProject \
-            -w /home/developer/workspace \
-            {image}
-    """.strip()
+    # Every optional piece below is added only if this host has it. A bind mount whose source is missing makes
+    # Docker create a directory in its place (or refuse to start), and --gpus needs the NVIDIA runtime, so an older
+    # X11-only machine would otherwise fail on flags it never needed.
+    has_wayland: bool = bool(wayland_socket) and os.path.exists(wayland_socket)
+    has_nvidia: bool = shutil.which("nvidia-smi") is not None
+
+    # The X authority the container presents; the alias in README.MD refreshes it before `docker start`.
+    xauth_source: str = os.getenv("XAUTHORITY") or os.path.join(home, ".Xauthority")
+    xauth_copy: str = os.path.join(home, ".docker_xauth")
+    if os.path.isfile(xauth_source):
+        shutil.copyfile(xauth_source, xauth_copy)
+    elif not os.path.exists(xauth_copy):
+        log.warning("No X authority file found; X11 apps in the container need `xhost +local:docker` on the host")
+        open(xauth_copy, "a").close()
+
+    flags: List[str] = [
+        "-d", "--name", container_name, "--ipc=host",
+        "-e", f"DISPLAY={display}",
+        "-e", f"XDG_SESSION_TYPE={'wayland' if has_wayland else 'x11'}",
+        "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+        "-v", f"{xauth_copy}:/home/developer/.Xauthority:ro",
+        "-v", f"{project_path}:/home/developer/workspace",
+        "-v", f"{project_path}/qtcreator_config:/home/developer/.config/QtProject",
+        "-w", "/home/developer/workspace",
+    ]
+    if has_wayland:
+        flags += ["-e", f"XDG_RUNTIME_DIR={runtime_dir}", "-e", f"WAYLAND_DISPLAY={wayland_display}",
+                  "-v", f"{wayland_socket}:{wayland_socket}"]
+    if has_nvidia:
+        flags += ["--gpus", "all", "-e", "NVIDIA_VISIBLE_DEVICES=all", "-e", "NVIDIA_DRIVER_CAPABILITIES=all"]
+        if os.path.exists("/usr/share/vulkan/icd.d/nvidia_icd.json"):
+            flags += ["-v", "/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json:ro"]
+    for device in ("/dev/dri", "/dev/snd"):
+        if os.path.exists(device):
+            flags += ["--device", f"{device}:{device}"]
+
+    sp.run(["docker", "rm", "-f", container_name], capture_output=True)
+    run_command = shlex.join(["docker", "run", *flags, image])
 
     log.info(f"Run command:\n{run_command}")
 
     try:
-        result = sp.run(run_command, shell=True, check=True, capture_output=True, text=True)
+        result = sp.run(["docker", "run", *flags, image], check=True, capture_output=True, text=True)
         log.info(f"Run output:\n{result.stdout}")
     except sp.CalledProcessError as e:
         log.error(f"Run failed with error:\n{e.stderr}")

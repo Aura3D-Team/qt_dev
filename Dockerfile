@@ -22,6 +22,9 @@ RUN apt-get update && \
     wayland-protocols libwayland-dev \
     # X11 (Required for libwma's X11 backend + running desktop/GUI apps)
     libx11-dev libxext-dev xauth \
+    # A disposable X server and clipboard tool: libwma's X11 tests (WMA_TEST_DISPLAY) and the
+    # bare-display runs of Aura3D's smoke test need them, and they must not touch the host's display
+    xvfb xclip \
     # Vulkan & Mesa
     libvulkan1 libvulkan-dev vulkan-tools mesa-vulkan-drivers \
         # libaurashell: PipeWire audio service, SVG icons
@@ -303,7 +306,7 @@ RUN wget "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h" -O 
 # Linux, Android and WASM, all into ${LOCAL_PREFIX}: headers install once and
 # each library carries its ABI tag (libink_wasm32.a, ...). Release only --
 # a debug build of a dependency has no place in a distributed image.
-ENV LIBINK_VERSION="0.6.1"
+ENV LIBINK_VERSION="0.7.0"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIBINK_VERSION}.tar.gz" -O libink.tar.gz && \
     mkdir -p libink && tar -xzf libink.tar.gz -C libink --strip-components=1 && rm -rf libink.tar.gz && \
     cd libink && \
@@ -313,7 +316,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libink/archive/refs/tags/v${LIB
     rm -rf /tmp/libink
 
 # Compile libwma for Linux, Android, and WASM
-ENV LIBWMA_VERSION="0.9.0"
+ENV LIBWMA_VERSION="0.10.0"
 RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIBWMA_VERSION}.tar.gz" -O libwma.tar.gz && \
     mkdir -p libwma && tar -xzf libwma.tar.gz -C libwma --strip-components=1 && rm -rf libwma.tar.gz && \
     cd libwma && \
@@ -323,7 +326,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIB
     rm -rf /tmp/libwma
 
 # Compile Aura3D for Linux, Android, and WASM
-ENV AURA3D_VERSION="0.8.0"
+ENV AURA3D_VERSION="0.9.0"
 RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${AURA3D_VERSION}.tar.gz" -O aura3d.tar.gz && \
     mkdir -p aura3d && tar -xzf aura3d.tar.gz -C aura3d --strip-components=1 && rm -rf aura3d.tar.gz && \
     cd aura3d && \
