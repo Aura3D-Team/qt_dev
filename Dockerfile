@@ -297,11 +297,12 @@ RUN wget "https://github.com/Thalhammer/jwt-cpp/releases/download/v${JWTCPP_VERS
     cmake --build /tmp/jwt-cpp-v${JWTCPP_VERSION}/build --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/jwt-cpp-v${JWTCPP_VERSION}
 
-RUN wget "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h" -O ${LOCAL_PREFIX}/include/stb_image.h && \
-    wget "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h" -O ${LOCAL_PREFIX}/include/stb_image_write.h && \
-    wget "https://raw.githubusercontent.com/nothings/stb_image_resize/main/stb_image_resize2.h" -O ${LOCAL_PREFIX}/include/stb_image_resize2.h && \
-    wget "https://raw.githubusercontent.com/nothings/stb/master/stb_vorbis.c" -O ${LOCAL_PREFIX}/include/stb_vorbis.c && \
-    wget "https://raw.githubusercontent.com/nothings/stb/master/stb_include.h" -O ${LOCAL_PREFIX}/include/stb_include.h && chmod 644 ${LOCAL_PREFIX}/include/stb_*
+# stb from the hardened Aura3D-Team/stb-aura3d-fork (upstream stb plus security fixes), not from nothings/stb
+RUN wget "https://raw.githubusercontent.com/Aura3D-Team/stb-aura3d-fork/master/stb_image.h" -O ${LOCAL_PREFIX}/include/stb_image.h && \
+    wget "https://raw.githubusercontent.com/Aura3D-Team/stb-aura3d-fork/master/stb_image_write.h" -O ${LOCAL_PREFIX}/include/stb_image_write.h && \
+    wget "https://raw.githubusercontent.com/Aura3D-Team/stb-aura3d-fork/master/stb_image_resize.h" -O ${LOCAL_PREFIX}/include/stb_image_resize.h && \
+    wget "https://raw.githubusercontent.com/Aura3D-Team/stb-aura3d-fork/master/stb_vorbis.c" -O ${LOCAL_PREFIX}/include/stb_vorbis.c && \
+    wget "https://raw.githubusercontent.com/Aura3D-Team/stb-aura3d-fork/master/stb_include.h" -O ${LOCAL_PREFIX}/include/stb_include.h && chmod 644 ${LOCAL_PREFIX}/include/stb_*
 
 # Linux, Android and WASM, all into ${LOCAL_PREFIX}: headers install once and
 # each library carries its ABI tag (libink_wasm32.a, ...). Release only --
@@ -326,7 +327,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIB
     rm -rf /tmp/libwma
 
 # Compile Aura3D for Linux, Android, and WASM
-ENV AURA3D_VERSION="0.9.0"
+ENV AURA3D_VERSION="0.9.1"
 RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${AURA3D_VERSION}.tar.gz" -O aura3d.tar.gz && \
     mkdir -p aura3d && tar -xzf aura3d.tar.gz -C aura3d --strip-components=1 && rm -rf aura3d.tar.gz && \
     cd aura3d && \

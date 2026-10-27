@@ -25,7 +25,7 @@ The Docker environment that you can build includes:
 * **[raylib](https://www.raylib.com/)** (zlib License)
 * **[libink](https://github.com/Arthu-RL/libink)** (MIT License)
 * **[ONNX Runtime](https://github.com/microsoft/onnxruntime)** (MIT License)
-* **[stb libraries](https://github.com/nothings/stb)** (Public Domain / MIT License)
+* **[stb libraries](https://github.com/Aura3D-Team/stb-aura3d-fork)** (Public Domain / MIT License), hardened fork of [nothings/stb](https://github.com/nothings/stb)
 * **[Emscripten](https://emscripten.org/)** (MIT / NCSA Open Source License)
 * **[Gradle](https://gradle.org/)** (Apache 2.0)
 
