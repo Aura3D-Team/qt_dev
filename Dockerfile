@@ -182,7 +182,8 @@ RUN wget "https://github.com/glfw/glfw/archive/refs/tags/${GLFW_VERSION}.tar.gz"
     rm -rf /tmp/glfw-${GLFW_VERSION}.tar.gz && \
     cmake -S /tmp/glfw-${GLFW_VERSION} -B /tmp/glfw-${GLFW_VERSION}/build_static \
         -DCMAKE_INSTALL_PREFIX=${LOCAL_PREFIX} \
-        -DBUILD_SHARED_LIBS=OFF && \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON && \
     cmake --build /tmp/glfw-${GLFW_VERSION}/build_static --target install --parallel $(( ($(nproc)+1)/2 )) && \
     rm -rf /tmp/glfw-${GLFW_VERSION}
 
@@ -193,6 +194,7 @@ RUN wget "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERS
     cmake -S /tmp/SDL3-${SDL_VERSION} -B /tmp/SDL3-${SDL_VERSION}/build_static \
         -DCMAKE_INSTALL_PREFIX=${LOCAL_PREFIX} \
         -DBUILD_SHARED_LIBS=OFF \
+        -DSDL_STATIC_PIC=ON \
         -DSDL_ALSA=ON \
         -DSDL_OPENGL=ON \
         -DSDL_VULKAN=ON \
@@ -327,7 +329,7 @@ RUN cd /tmp && wget "https://github.com/Arthu-RL/libwma/archive/refs/tags/v${LIB
     rm -rf /tmp/libwma
 
 # Compile Aura3D for Linux, Android, and WASM
-ENV AURA3D_VERSION="0.9.1"
+ENV AURA3D_VERSION="0.10.0"
 RUN cd /tmp && wget "https://github.com/Aura3D-Team/Aura3D/archive/refs/tags/v${AURA3D_VERSION}.tar.gz" -O aura3d.tar.gz && \
     mkdir -p aura3d && tar -xzf aura3d.tar.gz -C aura3d --strip-components=1 && rm -rf aura3d.tar.gz && \
     cd aura3d && \
