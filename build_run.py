@@ -81,6 +81,10 @@ def run(project_path: str, image: str, container_name: str) -> None:
     # The X authority the container presents; the alias in README.MD refreshes it before `docker start`.
     xauth_source: str = os.getenv("XAUTHORITY") or os.path.join(home, ".Xauthority")
     xauth_copy: str = os.path.join(home, ".docker_xauth")
+    # Docker creates a (root-owned) directory here if the file was missing when a container was started with the
+    # bind mount; an empty one is safe to replace with the file.
+    if os.path.isdir(xauth_copy) and not os.listdir(xauth_copy):
+        os.rmdir(xauth_copy)
     if os.path.isfile(xauth_source):
         shutil.copyfile(xauth_source, xauth_copy)
     elif not os.path.exists(xauth_copy):
