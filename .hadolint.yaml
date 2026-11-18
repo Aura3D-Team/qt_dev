@@ -1,0 +1,14 @@
+# Hadolint configuration
+# https://github.com/hadolint/hadolint#configure
+#
+# Rules below are relaxed because they flag existing, intentional patterns in
+# this dev image. Remove entries as the Dockerfiles are cleaned up.
+ignored:
+  # Pin versions in apt-get install (dev image tracks distro packages)
+  - DL3008
+  # Pin versions in pip install
+  - DL3013
+  # Use WORKDIR instead of `cd` inside RUN (used in build-from-source steps)
+  - DL3003
+  # Set SHELL -o pipefail before RUN with a pipe
+  - DL4006
